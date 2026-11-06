@@ -25,7 +25,7 @@ jobs:
           channel: 'stable'
 
       - name: Build APK
-        run: flet build apk
+        run: flet build apk --project-name "kariyer_radari" --org "com.sherlock.kariyer"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
