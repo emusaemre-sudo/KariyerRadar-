@@ -1,3 +1,4 @@
+import json
 import flet as ft
 import requests
 from bs4 import BeautifulSoup
@@ -137,7 +138,60 @@ def main(page: ft.Page):
     academic_list = ft.ListView(expand=True, spacing=10, padding=15)
     civil_list = ft.ListView(expand=True, spacing=10, padding=15)
 
+    try:
+        ad_statuses = json.loads(page.client_storage.get("kariyer_radar_ad_statuses") or "{}")
+    except Exception:
+        ad_statuses = {}
+
+    def save_ad_status(link, viewed, decision):
+        ad_statuses[link] = {"viewed": viewed, "decision": decision}
+        page.client_storage.set("kariyer_radar_ad_statuses", json.dumps(ad_statuses, ensure_ascii=False))
+
     def create_ad_card(title, source, link, icon_name, color):
+        saved = ad_statuses.get(link, {})
+        viewed_value = bool(saved.get("viewed", False))
+        decision_value = saved.get("decision", "Karar bekliyor")
+
+        def decision_color(value):
+            if value == "Başvuruya uygun":
+                return "#14532D"
+            if value == "Uygun değil":
+                return "#7F1D1D"
+            return "#334155"
+
+        status_badge = ft.Container(
+            content=ft.Text(decision_value, size=11, color=ft.colors.WHITE, weight=ft.FontWeight.BOLD),
+            bgcolor=decision_color(decision_value),
+            padding=ft.padding.symmetric(horizontal=10, vertical=6),
+            border_radius=12,
+        )
+
+        viewed_checkbox = ft.Checkbox(
+            label="İnceledim",
+            value=viewed_value,
+            active_color=ft.colors.INDIGO_400,
+            on_change=lambda e: save_ad_status(link, e.control.value, decision_dropdown.value),
+        )
+
+        def on_decision_change(e):
+            selected = e.control.value
+            save_ad_status(link, viewed_checkbox.value, selected)
+            status_badge.content = ft.Text(selected, size=11, color=ft.colors.WHITE, weight=ft.FontWeight.BOLD)
+            status_badge.bgcolor = decision_color(selected)
+            page.update()
+
+        decision_dropdown = ft.Dropdown(
+            label="Başvuru durumu",
+            width=190,
+            value=decision_value,
+            options=[
+                ft.dropdown.Option("Karar bekliyor"),
+                ft.dropdown.Option("Başvuruya uygun"),
+                ft.dropdown.Option("Uygun değil"),
+            ],
+            on_change=on_decision_change,
+        )
+
         return ft.Card(
             elevation=4,
             color="#1E293B",
@@ -154,23 +208,40 @@ def main(page: ft.Page):
                         ft.Divider(height=1, color="#334155"),
                         ft.Row(
                             [
-                                ft.Row([ft.Icon(ft.icons.CHECK_CIRCLE, size=16, color=ft.colors.GREEN_400), ft.Text("Aktif İlan", size=12, color=ft.colors.GREEN_400)]),
+                                viewed_checkbox,
+                                decision_dropdown,
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                        ft.Row(
+                            [
+                                ft.Row(
+                                    [
+                                        ft.Icon(ft.icons.CHECK_CIRCLE, size=16, color=ft.colors.GREEN_400),
+                                        ft.Text("Aktif İlan", size=12, color=ft.colors.GREEN_400),
+                                    ],
+                                    spacing=5,
+                                ),
+                                status_badge,
                                 ft.ElevatedButton(
                                     "İlana Git",
                                     icon=ft.icons.LINK,
-                                    url=link, 
+                                    url=link,
                                     style=ft.ButtonStyle(
                                         color=color,
                                         bgcolor="#0F172A",
-                                        shape=ft.RoundedRectangleBorder(radius=8)
-                                    )
-                                )
+                                        shape=ft.RoundedRectangleBorder(radius=8),
+                                    ),
+                                ),
                             ],
                             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        )
-                    ]
-                )
-            )
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                    ],
+                    spacing=10,
+                ),
+            ),
         )
 
     def scan_ads(e):
@@ -208,7 +279,7 @@ def main(page: ft.Page):
 
     scan_btn = ft.ElevatedButton(
         content=ft.Row([ft.Icon(ft.icons.RADAR), ft.Text("İlanları Tara", weight=ft.FontWeight.BOLD)], alignment=ft.MainAxisAlignment.CENTER),
-        width=300,
+        width=330,
         height=50,
         style=ft.ButtonStyle(
             bgcolor=ft.colors.INDIGO_600,
@@ -216,6 +287,31 @@ def main(page: ft.Page):
             shape=ft.RoundedRectangleBorder(radius=25)
         ),
         on_click=scan_ads
+    )
+
+    header = ft.Container(
+        padding=ft.padding.only(left=18, right=18, top=18, bottom=10),
+        content=ft.Row(
+            [
+                ft.Container(
+                    width=52,
+                    height=52,
+                    bgcolor="#172554",
+                    border_radius=16,
+                    alignment=ft.alignment.center,
+                    content=ft.Icon(ft.icons.RADAR, color="#67E8F9", size=34),
+                ),
+                ft.Column(
+                    [
+                        ft.Text("KARİYER RADARI", size=18, weight=ft.FontWeight.BOLD, color=ft.colors.WHITE),
+                        ft.Text("Fırsatları keşfet, başvurunu takip et", size=11, color=ft.colors.BLUE_200),
+                    ],
+                    spacing=2,
+                ),
+            ],
+            spacing=12,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
     )
 
     tabs = ft.Tabs(
@@ -240,10 +336,13 @@ def main(page: ft.Page):
     )
 
     page.add(
-        ft.Container(height=15),
-        ft.Container(content=scan_btn, alignment=ft.alignment.center),
-        ft.Container(height=10),
-        tabs
+        header,
+        tabs,
+        ft.Container(
+            content=scan_btn,
+            alignment=ft.alignment.center,
+            padding=ft.padding.only(left=16, right=16, top=10, bottom=16),
+        ),
     )
 
 ft.app(target=main)
