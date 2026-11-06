@@ -22,7 +22,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          flutter-version: '3.22.2'
 
       - name: Build APK
         run: flet build apk --project kariyer_radari --org com.sherlock.kariyer
